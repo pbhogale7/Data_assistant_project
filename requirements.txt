@@ -3,3 +3,4 @@ pandas==2.2.1
 langchain-openai==0.0.8
 python-dotenv==1.0.1
 langchain-experimental==0.0.52
+tabulate
