@@ -2,7 +2,7 @@ import os
 import streamlit as st
 import pandas as pd
 
-from langchain.llms import OpenAI
+from langchain_openai import OpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from dotenv import load_dotenv, find_dotenv
 
