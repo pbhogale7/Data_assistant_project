@@ -122,7 +122,7 @@ os.environ['OPENAI_API_KEY']=st.secrets["openai_apikey"]
 load_dotenv(find_dotenv())
 
 # Title
-st.title('AI Assistant for Data Science 🤖')
+st.title('SU iBot 🤖')
 
 # Welcoming message
 st.write("Hello, 👋 I am your AI Assistant and I am here to help you with your data science projects.")
