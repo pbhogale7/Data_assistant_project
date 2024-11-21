@@ -6,38 +6,20 @@ from langchain_openai import OpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from dotenv import load_dotenv, find_dotenv
 
-# OpenAIKey
-os.environ['OPENAI_API_KEY']=st.secrets["openai_apikey"]
-load_dotenv(find_dotenv())
+# Cache the LLM initialization
+@st.cache_resource
+def get_llm():
+    """Initialize and return the OpenAI LLM instance"""
+    return OpenAI(temperature=0)
 
-# Title
-st.title('AI Assistant for Data Science 🤖')
+# Cache the pandas agent creation
+@st.cache_resource
+def get_pandas_agent(llm, df):
+    """Create and return the pandas dataframe agent"""
+    return create_pandas_dataframe_agent(llm, df, verbose=True, allow_dangerous_code=True)
 
-# Welcoming message
-st.write("Hello, 👋 I am your AI Assistant and I am here to help you with your data science projects.")
-
-# Explanation sidebar
-with st.sidebar:
-    st.write('*Your Data Science Adventure Begins with an CSV File.*')
-    st.caption('''**You may already know that every exciting data science journey starts with a dataset.
-    That's why I'd love for you to upload a CSV file.
-    Once we have your data in hand, we'll dive into understanding it and have some fun exploring it.
-    Then, we'll work together to shape your business challenge into a data science framework.**
-    ''')
-    st.divider()
-    st.caption("<p style='text-align:center'> made with ❤️ by SU iBot</p>", unsafe_allow_html=True)
-
-# Initialize session state
-if 'clicked' not in st.session_state:
-    st.session_state.clicked = {1: False}
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'analysis_complete' not in st.session_state:
-    st.session_state.analysis_complete = False
-
-def clicked(button):
-    st.session_state.clicked[button] = True
-
+# Cache the categorical data analysis
+@st.cache_data(show_spinner="Analyzing categorical data...")
 def analyze_categorical_data(pandas_agent, column_name, df):
     st.write(f"**Analysis of {column_name}**")
     
@@ -76,6 +58,8 @@ def analyze_categorical_data(pandas_agent, column_name, df):
         st.write("Raw data for debugging:")
         st.write(df[column_name].head())
 
+# Cache question processing
+@st.cache_data(show_spinner="Processing question...", ttl="10m")
 def process_question(pandas_agent, question, df):
     """Process a data-related question and determine if visualization is needed"""
     visualization_keywords = ["show", "plot", "display", "visualize", "graph", "chart", "distribution"]
@@ -100,6 +84,8 @@ def process_question(pandas_agent, question, df):
     response = pandas_agent.run(question)
     return response
 
+# Cache initial analysis
+@st.cache_data(show_spinner="Performing initial analysis...")
 def initial_analysis(pandas_agent, df):
     """Perform initial EDA and store results in session state"""
     if not st.session_state.analysis_complete:
@@ -131,6 +117,38 @@ def initial_analysis(pandas_agent, df):
             "content": "I've completed the initial analysis. What would you like to know about your data? You can ask me anything about the patterns, relationships, or specific aspects of your dataset."
         })
 
+# OpenAIKey
+os.environ['OPENAI_API_KEY']=st.secrets["openai_apikey"]
+load_dotenv(find_dotenv())
+
+# Title
+st.title('AI Assistant for Data Science 🤖')
+
+# Welcoming message
+st.write("Hello, 👋 I am your AI Assistant and I am here to help you with your data science projects.")
+
+# Explanation sidebar
+with st.sidebar:
+    st.write('*Your Data Science Adventure Begins with an CSV File.*')
+    st.caption('''**You may already know that every exciting data science journey starts with a dataset.
+    That's why I'd love for you to upload a CSV file.
+    Once we have your data in hand, we'll dive into understanding it and have some fun exploring it.
+    Then, we'll work together to shape your business challenge into a data science framework.**
+    ''')
+    st.divider()
+    st.caption("<p style='text-align:center'> made with ❤️ by SU iBot</p>", unsafe_allow_html=True)
+
+# Initialize session state
+if 'clicked' not in st.session_state:
+    st.session_state.clicked = {1: False}
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
+if 'analysis_complete' not in st.session_state:
+    st.session_state.analysis_complete = False
+
+def clicked(button):
+    st.session_state.clicked[button] = True
+
 st.button("Let's get started", on_click=clicked, args=[1])
 if st.session_state.clicked[1]:
     user_csv = st.file_uploader("Upload your file here", type="csv")
@@ -138,9 +156,9 @@ if st.session_state.clicked[1]:
         user_csv.seek(0)
         df = pd.read_csv(user_csv, low_memory=False)
 
-        # Create LLM and pandas agent
-        llm = OpenAI(temperature=0)
-        pandas_agent = create_pandas_dataframe_agent(llm, df, verbose=True, allow_dangerous_code=True )
+        # Create LLM and pandas agent using cached functions
+        llm = get_llm()
+        pandas_agent = get_pandas_agent(llm, df)
 
         # Perform initial analysis
         initial_analysis(pandas_agent, df)
