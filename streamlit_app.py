@@ -7,7 +7,7 @@ from langchain_experimental.agents import create_pandas_dataframe_agent
 from dotenv import load_dotenv, find_dotenv
 
 # OpenAIKey
-os.environ['OPENAI_API_KEY']=st.secrets("openai_apikey")
+os.environ['OPENAI_API_KEY']=st.secrets["openai_apikey"]
 load_dotenv(find_dotenv())
 
 # Title
