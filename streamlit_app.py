@@ -14,13 +14,13 @@ def get_llm():
 
 # Cache the pandas agent creation
 @st.cache_resource
-def get_pandas_agent(llm, df):
+def get_pandas_agent(_llm, df):
     """Create and return the pandas dataframe agent"""
-    return create_pandas_dataframe_agent(llm, df, verbose=True, allow_dangerous_code=True)
+    return create_pandas_dataframe_agent(_llm, df, verbose=True, allow_dangerous_code=True)
 
-# Cache the categorical data analysis
+# Cache categorical data analysis
 @st.cache_data(show_spinner="Analyzing categorical data...")
-def analyze_categorical_data(pandas_agent, column_name, df):
+def analyze_categorical_data(_pandas_agent, column_name, df):
     st.write(f"**Analysis of {column_name}**")
     
     if column_name not in df.columns:
@@ -43,7 +43,7 @@ def analyze_categorical_data(pandas_agent, column_name, df):
         })
         st.bar_chart(chart_data.set_index('Category'))
         
-        distribution = pandas_agent.run(f"""Analyze the distribution of {column_name} and provide insights. 
+        distribution = _pandas_agent.run(f"""Analyze the distribution of {column_name} and provide insights. 
         Include:
         1. Most common categories
         2. Least common categories
@@ -60,7 +60,7 @@ def analyze_categorical_data(pandas_agent, column_name, df):
 
 # Cache question processing
 @st.cache_data(show_spinner="Processing question...", ttl="10m")
-def process_question(pandas_agent, question, df):
+def process_question(_pandas_agent, question, df):
     """Process a data-related question and determine if visualization is needed"""
     visualization_keywords = ["show", "plot", "display", "visualize", "graph", "chart", "distribution"]
     
@@ -74,19 +74,19 @@ def process_question(pandas_agent, question, df):
         if columns_mentioned:
             for col in columns_mentioned:
                 if df[col].dtype in ['object', 'category'] or df[col].dtype == 'bool':
-                    analyze_categorical_data(pandas_agent, col, df)
+                    analyze_categorical_data(_pandas_agent, col, df)
                 else:
                     st.line_chart(df, y=[col])
-                    statistics = pandas_agent.run(f"Analyze {col} and provide key statistical insights")
+                    statistics = _pandas_agent.run(f"Analyze {col} and provide key statistical insights")
                     st.write(statistics)
     
     # Get the answer from the agent
-    response = pandas_agent.run(question)
+    response = _pandas_agent.run(question)
     return response
 
 # Cache initial analysis
 @st.cache_data(show_spinner="Performing initial analysis...")
-def initial_analysis(pandas_agent, df):
+def initial_analysis(_pandas_agent, df):
     """Perform initial EDA and store results in session state"""
     if not st.session_state.analysis_complete:
         st.write("**Data Overview**")
@@ -98,17 +98,17 @@ def initial_analysis(pandas_agent, df):
         st.write(list(categorical_columns))
         
         st.write("**Data Quality Assessment**")
-        columns_df = pandas_agent.run("""For each column, provide:
+        columns_df = _pandas_agent.run("""For each column, provide:
         1. The data type
         2. Whether it's categorical or numerical
         3. A brief description of what the column represents
         """)
         st.write(columns_df)
         
-        missing_values = pandas_agent.run("How many missing values does this dataframe have? Start the answer with 'There are'")
+        missing_values = _pandas_agent.run("How many missing values does this dataframe have? Start the answer with 'There are'")
         st.write(missing_values)
         
-        duplicates = pandas_agent.run("Are there any duplicate values and if so where?")
+        duplicates = _pandas_agent.run("Are there any duplicate values and if so where?")
         st.write(duplicates)
         
         st.session_state.analysis_complete = True
