@@ -6,6 +6,20 @@ from langchain_openai import OpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from dotenv import load_dotenv, find_dotenv
 
+# Initialize all session state variables
+if 'clicked' not in st.session_state:
+    st.session_state.clicked = {1: False}
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
+if 'analysis_complete' not in st.session_state:
+    st.session_state.analysis_complete = False
+if 'df' not in st.session_state:
+    st.session_state.df = None
+if 'llm' not in st.session_state:
+    st.session_state.llm = None
+if 'pandas_agent' not in st.session_state:
+    st.session_state.pandas_agent = None
+
 # Cache the LLM initialization
 @st.cache_resource
 def get_llm():
@@ -62,27 +76,30 @@ def analyze_categorical_data(_pandas_agent, column_name, df):
 @st.cache_data(show_spinner="Processing question...", ttl="10m")
 def process_question(_pandas_agent, question, df):
     """Process a data-related question and determine if visualization is needed"""
-    visualization_keywords = ["show", "plot", "display", "visualize", "graph", "chart", "distribution"]
-    
-    # Check if the question involves visualization
-    needs_viz = any(keyword in question.lower() for keyword in visualization_keywords)
-    
-    if needs_viz:
-        # Try to identify which columns to visualize
-        columns_mentioned = [col for col in df.columns if col.lower() in question.lower()]
+    try:
+        visualization_keywords = ["show", "plot", "display", "visualize", "graph", "chart", "distribution"]
         
-        if columns_mentioned:
-            for col in columns_mentioned:
-                if df[col].dtype in ['object', 'category'] or df[col].dtype == 'bool':
-                    analyze_categorical_data(_pandas_agent, col, df)
-                else:
-                    st.line_chart(df, y=[col])
-                    statistics = _pandas_agent.run(f"Analyze {col} and provide key statistical insights")
-                    st.write(statistics)
-    
-    # Get the answer from the agent
-    response = _pandas_agent.run(question)
-    return response
+        # Check if the question involves visualization
+        needs_viz = any(keyword in question.lower() for keyword in visualization_keywords)
+        
+        if needs_viz:
+            # Try to identify which columns to visualize
+            columns_mentioned = [col for col in df.columns if col.lower() in question.lower()]
+            
+            if columns_mentioned:
+                for col in columns_mentioned:
+                    if df[col].dtype in ['object', 'category'] or df[col].dtype == 'bool':
+                        analyze_categorical_data(_pandas_agent, col, df)
+                    else:
+                        st.line_chart(df, y=[col])
+                        statistics = _pandas_agent.run(f"Analyze {col} and provide key statistical insights")
+                        return statistics
+        
+        # Get the answer from the agent
+        response = _pandas_agent.run(question)
+        return response
+    except Exception as e:
+        return f"Error processing question: {str(e)}"
 
 # Cache initial analysis
 @st.cache_data(show_spinner="Performing initial analysis...")
@@ -117,6 +134,9 @@ def initial_analysis(_pandas_agent, df):
             "content": "I've completed the initial analysis. What would you like to know about your data? You can ask me anything about the patterns, relationships, or specific aspects of your dataset."
         })
 
+def clicked(button):
+    st.session_state.clicked[button] = True
+
 # OpenAIKey
 os.environ['OPENAI_API_KEY']=st.secrets["openai_apikey"]
 load_dotenv(find_dotenv())
@@ -138,30 +158,26 @@ with st.sidebar:
     st.divider()
     st.caption("<p style='text-align:center'> made with ❤️ by SU iBot</p>", unsafe_allow_html=True)
 
-# Initialize session state
-if 'clicked' not in st.session_state:
-    st.session_state.clicked = {1: False}
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'analysis_complete' not in st.session_state:
-    st.session_state.analysis_complete = False
-
-def clicked(button):
-    st.session_state.clicked[button] = True
-
+# Main app flow
 st.button("Let's get started", on_click=clicked, args=[1])
 if st.session_state.clicked[1]:
     user_csv = st.file_uploader("Upload your file here", type="csv")
+    
     if user_csv is not None:
-        user_csv.seek(0)
-        df = pd.read_csv(user_csv, low_memory=False)
-
-        # Create LLM and pandas agent using cached functions
-        llm = get_llm()
-        pandas_agent = get_pandas_agent(llm, df)
-
-        # Perform initial analysis
-        initial_analysis(pandas_agent, df)
+        # Only load the data if it's not already loaded or if it's a new file
+        if st.session_state.df is None:
+            user_csv.seek(0)
+            st.session_state.df = pd.read_csv(user_csv, low_memory=False)
+            
+            # Initialize LLM and pandas agent if not already done
+            if st.session_state.llm is None:
+                st.session_state.llm = get_llm()
+            if st.session_state.pandas_agent is None:
+                st.session_state.pandas_agent = get_pandas_agent(st.session_state.llm, st.session_state.df)
+            
+            # Perform initial analysis only once
+            if not st.session_state.analysis_complete:
+                initial_analysis(st.session_state.pandas_agent, st.session_state.df)
 
         # Chat interface
         st.write("---")
@@ -183,7 +199,7 @@ if st.session_state.clicked[1]:
             
             # Process the question and get response
             with st.chat_message("assistant"):
-                response = process_question(pandas_agent, user_question, df)
+                response = process_question(st.session_state.pandas_agent, user_question, st.session_state.df)
                 st.write(response)
                 
                 # Add assistant's response to chat history
