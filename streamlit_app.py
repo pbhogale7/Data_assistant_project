@@ -1,4 +1,5 @@
-import os 
+import os
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -9,8 +10,16 @@ from dotenv import load_dotenv, find_dotenv
 # Cache the LLM initialization
 @st.cache_resource
 def get_llm():
-    """Initialize and return the OpenAI LLM instance"""
-    return OpenAI(temperature=0)
+    """Initialize and return the OpenAI LLM instance
+    
+    Returns:
+        ChatOpenAI: Configured LLM instance using GPT-4-mini model
+    """
+    return ChatOpenAI(
+        temperature=0,
+        model_name='gpt-4o-mini',
+        openai_api_key= openai_api_key
+    )
 
 # Cache the pandas agent creation
 @st.cache_resource
